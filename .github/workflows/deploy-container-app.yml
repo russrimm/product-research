@@ -1,0 +1,42 @@
+name: Deploy to Azure Container Apps
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["docs/**", "**.md"]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  RESOURCE_GROUP: rg-product-research
+  CONTAINER_APP: ca-product-research
+  ACR_NAME: acrprodresearchkynbq
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # The lockfile resolves packages via an internal feed; point it at the public registry.
+      - run: sed -i -E 's#https://ms-feed-[^"]*/npm/registry/#https://registry.npmjs.org/#' package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Build image in ACR
+        run: az acr build -r "$ACR_NAME" -t "product-research:${{ github.sha }}" .
+      - name: Deploy new revision
+        run: >
+          az containerapp update -n "$CONTAINER_APP" -g "$RESOURCE_GROUP"
+          --image "$ACR_NAME.azurecr.io/product-research:${{ github.sha }}"

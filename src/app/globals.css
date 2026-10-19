@@ -2,25 +2,45 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #111827;
+  --muted: #6b7280;
+  --line: #e5e7eb;
+  --card: #f9fafb;
+  --accent: #2563eb;
+  --pos: #16a34a;
+  --neu: #ca8a04;
+  --neg: #dc2626;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0b0f17;
+    --foreground: #e5e7eb;
+    --muted: #94a3b8;
+    --line: #1f2937;
+    --card: #111827;
+    --accent: #60a5fa;
+    --pos: #4ade80;
+    --neu: #facc15;
+    --neg: #f87171;
+  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-card: var(--card);
+  --color-accent: var(--accent);
+  --color-pos: var(--pos);
+  --color-neu: var(--neu);
+  --color-neg: var(--neg);
+  --font-sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
 }

@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Product Research
 
-## Getting Started
+Ask questions about Microsoft Foundry, Copilot Studio, Microsoft Copilot and Driving Adoption. Answers are grounded in Microsoft Learn (live via the Learn MCP server), Microsoft Tech Community forums and product subreddits, with citations. Each product dashboard shows overall sentiment, a 30-day sentiment trend, recurring issues, the latest threads and top Reddit posts by upvotes.
 
-First, run the development server:
+## Quick start
 
-```bash
+```powershell
+npm install
+Copy-Item .env.example .env.local   # then edit
+npm run ingest                      # pulls Tech Community (and Reddit, if configured)
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Without Azure OpenAI credentials the app still works: sentiment and topics use a built-in lexicon, and answers are extractive (top cited sources). Add credentials for LLM sentiment, embeddings (hybrid retrieval) and synthesized streaming answers.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Configuration (`.env.local`)
 
-## Learn More
+| Variable | Purpose |
+| --- | --- |
+| `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY` | Azure OpenAI / Foundry resource |
+| `AZURE_OPENAI_CHAT_DEPLOYMENT`, `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` | Deployment names |
+| `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `REDDIT_USER_AGENT` | Reddit OAuth (app-only) |
+| `LEARN_MCP_URL` | Defaults to `https://learn.microsoft.com/api/mcp` |
+| `DATABASE_PATH` | SQLite file, default `data/research.db` |
+| `INGEST_TOKEN` | Bearer token required by `POST /api/ingest` in production |
 
-To learn more about Next.js, take a look at the following resources:
+See `.env.example` for the complete list, including scheduler settings.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Reddit credentials
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Create a "script" or "web app" at https://www.reddit.com/prefs/apps and copy the client ID and secret. Reddit blocks unauthenticated API access, so Reddit ingestion is skipped until these are set.
 
-## Deploy on Vercel
+Subreddits are configured in `src/config/products.ts`. `CopilotStudio` and `AzureFoundry` were provided by the requirements; others (`microsoft_365_copilot`, `copilotmicrosoft`) are unverified guesses. Missing or private subreddits are skipped without failing the run.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Ingestion
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- CLI: `npm run ingest`
+- HTTP: `curl -X POST http://localhost:3000/api/ingest -H "Authorization: Bearer $INGEST_TOKEN"`
+- Scheduled: the in-process scheduler starts with the server (see scheduler variables in `.env.example`).
+
+Tech Community has no usable public API, so the app reads the public Khoros RSS feeds (`/t5/s/gxcuf89792/rss/board?board.id=<id>`), which return about 20 recent threads per board without kudos or reply counts. Only forum threads are kept. Please respect the site's terms and keep the schedule modest.
+
+## API
+
+- `POST /api/ask` with `{ "question": "...", "productId": "copilot-studio" }` streams NDJSON events (citations, then answer tokens).
+- `GET /api/products/{id}/overview` returns sentiment, trend, issues and top posts.
+
+## Scripts
+
+`npm run lint`, `npm run typecheck`, `npm test`, `npm run build`.
+
+## Docker and Azure
+
+```powershell
+docker build -t product-research .
+docker run -p 3000:3000 -v pr-data:/data --env-file .env.local product-research
+```
+
+For Azure, deploy the image to Azure Container Apps and mount an Azure Files share at `/data` for SQLite. Use a managed identity or Key Vault references for secrets. SQLite is single-writer, so keep one replica; moving to Postgres is the path to scale out.
